@@ -1,0 +1,18 @@
+[package]
+name = "nearest-enum"
+version = "0.1.0"
+edition = "2024"
+description = "Derive nearest/exact/ceil lookups on fieldless enums tagged with integer values, compile-time first"
+license = "BSD-3-Clause"
+readme = "README.md"
+repository = "https://github.com/Gioelio/nearest-enum"
+keywords = ["enum", "no-std", "conversion", "lookup", "const-fn"]
+categories = ["embedded", "no-std"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1.0.107"
+quote = "1.0.47"
+syn = { version = "3.0.3", features = ["full"] }
