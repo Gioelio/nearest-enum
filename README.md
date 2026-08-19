@@ -1,7 +1,10 @@
 # nearest-enum
+[![Crates.io][crates-badge]][crates-url]
 [![BSD 3-Clause licensed][bsd-badge]][bsd-url]
 
-[bsd-badge]: https://img.shields.io/crates/l/lsm6dsv16x-rs
+[crates-badge]: https://img.shields.io/crates/v/nearest-enum
+[crates-url]: https://crates.io/crates/nearest-enum
+[bsd-badge]: https://img.shields.io/crates/l/nearest-enum
 [bsd-url]: https://opensource.org/licenses/BSD-3-Clause
 
 nearest-enum macro ease the conversion of numbers into enum strict values. Specifying the integer on the enum variants, it produces three lookup functions for free - `nearest`, `exact`, and `ceil` - all resolved as `const fn`, allowing compile-time-known lookup (when available).
