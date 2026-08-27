@@ -1,0 +1,5 @@
+error: `off` cannot be combined with an explicit value - `off` implies 0
+ --> tests/compile-fail/off_with_value.rs:6:5
+  |
+6 |     A,
+  |     ^

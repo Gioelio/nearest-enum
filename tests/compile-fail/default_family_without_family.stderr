@@ -1,0 +1,5 @@
+error: `default_family` requires at least one variant to declare a `family`
+ --> tests/compile-fail/default_family_without_family.rs:5:6
+  |
+5 | enum E {
+  |      ^

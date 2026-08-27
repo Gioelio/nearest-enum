@@ -1,0 +1,5 @@
+error: `default_family` cannot be `any`, `default`, or `base` - those are reserved selectors, not assignable families
+ --> tests/compile-fail/default_family_any.rs:5:6
+  |
+5 | enum E {
+  |      ^

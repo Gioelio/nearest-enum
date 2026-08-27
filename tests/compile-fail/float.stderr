@@ -1,0 +1,5 @@
+error: Nearest uses integer values only (e.g. mHz) - found a float literal; multiply by 1000 and use an integer instead
+ --> tests/compile-fail/float.rs:7:15
+  |
+7 |     #[nearest(1.5)]
+  |               ^^^
