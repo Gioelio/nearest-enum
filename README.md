@@ -15,7 +15,7 @@ nearest-enum macro ease the conversion of numbers into enum strict values. Speci
 #[nearest(unit = "mhz")]
 pub enum Odr {
     #[default]
-    #[nearest(0)]
+    #[nearest(off)]
     Off = 0x0,
     #[nearest(1_875)]  // 1.875 Hz, in mHz
     _1_875hz = 0x1,
@@ -31,7 +31,7 @@ const STARTUP_ODR: Odr = Odr::ceil_mhz(1);
 fn main() {
     assert_eq!(Odr::nearest_mhz(1_000), Odr::_1_875hz);
     assert_eq!(Odr::exact_mhz(7_500), Some(Odr::_7_5hz));
-    assert_eq!(Odr::ceil_mhz(1), Odr::_1_875hz); // not Off!
+    assert_eq!(Odr::ceil_mhz(1), Odr::_1_875hz); // Skips Off!
 }
 ```
 
@@ -56,7 +56,7 @@ pub enum Gain {
 }
 ```
 
-These generates three `const fn`s on `Gain` enum:
+This generates three `const fn`s on `Gain` enum:
 
 | Function | Behavior |
 |--- | --- |
@@ -66,7 +66,7 @@ These generates three `const fn`s on `Gain` enum:
 
 
 
-### Choosing a unit
+### Unit
 
 Add `unit = "..."` at the enum level and it flows both into the function name, parameter name, and in the docs.
 
@@ -82,7 +82,7 @@ pub enum Odr { /* ... */ }
 Leave `unit` attribute off and you get the un-suffixed names.
 
 
-### Overflow: choosing the integer type
+### Integer Types
 
 Values default to `u32`. If you need more range, override with `#[nearest(ty = "u64")]`at the enum level. 
 
@@ -92,20 +92,45 @@ Values default to `u32`. If you need more range, override with `#[nearest(ty = "
 pub enum SampleRate { /* values up to u64::MAX */ }
 ```
 
-### Grouping variants into families
-Some use cases require to group the variants in families. In this example `DataRate` enum organizes variants by "high accuracy" mode. Tag those variants with `family = " ..."` to add a `family` parameter to the generated functions. 
+### 'off' special variant
+
+Some enums may have a 0 value, used to turn-off the device. Such value should not be used in the search system, otherwise very low values may match with 'off' instead of the lower, but still active, values. 
 
 ```rust
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Debug, Default, Nearest)]
-#[nearest(unit = "mhz")]
+#[nearest(unit = "hz")]
 pub enum Odr {
     #[default]
-    #[nearest(0)]
+    #[nearest(off)]
     Off = 0x0,
-    #[nearest(1_875)]
+    #[nearest(5)]
+    _5hz = 0x1,
+    #[nearest(10)]
+    _10hz = 0x2,
+
+}
+
+// Odr::nearest_hz(1) -> Odr::_5hz (skips Off)
+// Odr::nearest_hz(0) -> Odr::Off
+```
+
+### Variant Families
+
+Organize enum variants into logical groupings by tagging them with family = "...".
+
+```rust
+#[repr(u8)]
+#[derive(Clone, Copy, PartialEq, Debug, Default, Nearest)]
+#[nearest(unit = "mhz", default_family = "ha00")]
+pub enum Odr {
+    #[default]
+    #[nearest(off)]
+    Off = 0x0, // Unfamilied: defaults to Base (universally reachable)
+
+    #[nearest(1_875, family = "ha00")]
     _1_875hz = 0x1,
-    #[nearest(30_000)]
+    #[nearest(30_000, family = "ha00")]
     _30hz = 0x4,
 
     #[nearest(15_625, family = "ha01")]
@@ -114,16 +139,26 @@ pub enum Odr {
     Ha01At31_25hz = 0x14,
 }
 ```
-As soon as any variant declares a `family`, the macro generates a companion enum - `<enum-name>Family` (`OdrFamily` in this example) - with one variant per distinct family name (PascalCased) plus `Base`, and every lookup function grows a `family: OdrFamily` parameter:
+When families are used, a companion `<Enum>Family` enum is generated, and all lookup functions accept a family argument:
 
 ```rust
-Odr::nearest_mhz(30_000, OdrFamily::Base); // Odr::_30hz
-Odr::nearest_mhz(32_000, OdrFamily::Ha01); // Odr::Ha01At31_25hz
-Odr::nearest_mhz(30_000, OdrFamily::Ha01); // Odr::_30hz !! Not Odr::Ha01At31_25hz
+// Search within a specific family
+Odr::nearest_mhz(30_000, OdrFamily::Ha00); // Odr::_30hz
+Odr::nearest_mhz(30_000, OdrFamily::Ha01); // Odr::Ha01At31_25hz
+
+// Search using built-in selectors
+Odr::nearest_mhz(30_000, OdrFamily::Default); // Searches configured default ("ha00") + Base
+Odr::nearest_mhz(30_000, OdrFamily::Any);     // Searches all families unconditionally
 ```
 
-Variants without an explicit `family` belong to the implicit `Base` family, and `Base` variants are **always eligible, regardless of which family you request**.
-This is deliberate: allowing a preferred settings among all families. If a user use `Odr::nearest_mhz(30_000, OdrFamily::Ha01)` for 30_000mhz, it will obtain Odr::_30hz. To separate those data rates, assign a different family to the "normal" Odrs. And leave `Base` for `Off` variant that should be shared among families.
+`Default` and `Any` variants helps to achieve special behavior.
+- `Default` is available only if `default_family` is added as container-level attribute and it will match the values of the family chosen.
+- `Any` ignores the family constaints and match with every values.
+
+Note:
+- `off` could be constained to a family, but if not it will be shared among all families.
+- Once families are enabled, every non-off variant must specify a family.
+
 
 ## Purpose
 
@@ -131,7 +166,7 @@ To generalize sensors drivers, common enums with different variants, like Odr (O
 
 Available function for each enums are:
 - `nearest_<unit> -> Self`: select the nearest value between the chosen one and available
-- `exact_<unit> -> Option<Self>`: return Ok only if a match between input and variants exists
+- `exact_<unit> -> Option<Self>`: return Some only if a match between input and variants exists
 - `ceil_<unit> -> Self`: used to set a minimum frequency required by the application. The sensor will set the minimum to fulfill that value.
 
  ### Compile-time-first
@@ -144,6 +179,12 @@ Available function for each enums are:
 - The enum should derive `Clone, Copy` — the generated functions return `Self` by value out of a `&'static` table, which requires `Copy`.
 - At least one variant must carry a `#[nearest(...)]` value, or the derive fails to compile with a clear message.
 - A float literal in `#[nearest(...)]` is rejected at compile time with a message telling you to scale it into an integer (e.g. multiply Hz by 1000 for mHz) — this is enforced, not just a convention.
+
+## Limitations and potential improvements
+
+- Negative attribute literals: Negative numbers can be passed as runtime arguments (when ty is set to a signed type), but are not currently supported as values inside `#[nearest(<value>)]` attributes.
+- Float support: Floating-point numbers are omitted to keep macro output lightweight and suitable for bare-metal / embedded targets. Float support may be added in a future release.
+- Generated doc comments: Documentation for generated functions is static and hardcoded by the macro, with no option yet for custom per-enum doc overrides.
 
  ## License
 
