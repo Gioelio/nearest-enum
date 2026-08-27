@@ -1,6 +1,6 @@
 [package]
 name = "nearest-enum"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 description = "Derive nearest/exact/ceil lookups on fieldless enums tagged with integer values, compile-time first"
 license = "MIT"
